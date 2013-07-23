@@ -17,6 +17,7 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="VkTalk" scope="PROVIDED" />
+    <orderEntry type="library" name="jas-2.5.4488-bin" level="project" />
   </component>
 </module>
 

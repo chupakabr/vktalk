@@ -2,7 +2,6 @@ package com.vk.mobile.util;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.CharBuffer;
 import java.nio.IntBuffer;
 
 /**
@@ -11,8 +10,34 @@ import java.nio.IntBuffer;
  */
 public class EndianConverterUtil {
 
+    public static final ByteOrder DEFAULT_ORDER = ByteOrder.LITTLE_ENDIAN;
+    public static final ByteOrder OPPOSITE_ORDER = ByteOrder.BIG_ENDIAN;
+
+    public static int[] longToInts(long value) {
+        return swap(new int[] {
+                (int) (value & 0xFFFFFFFF),
+                (int) (value >> 32 & 0xFFFFFFFF)
+        });
+    }
+
+    public static byte[] intToBytes(int value, int length) {
+        byte[] data = new byte[length];
+        while (length-- > 0) {
+            data[length] = (byte) (value >> (length*8) & 0xFF);
+        }
+        return data;
+    }
+
+    public static long bytesToLong(byte[] bytes) {
+        return bytesToLong(bytes, OPPOSITE_ORDER);
+    }
+
+    public static long bytesToLong(byte[] bytes, ByteOrder order) {
+        return ByteBuffer.wrap(bytes).order(order).getLong();
+    }
+
     public static byte[] intToByteArray(int[] array) {
-        return intToByteArray(array, ByteOrder.LITTLE_ENDIAN);
+        return intToByteArray(array, DEFAULT_ORDER);
     }
 
     public static byte[] intToByteArray(int[] array, ByteOrder order) {
@@ -30,7 +55,7 @@ public class EndianConverterUtil {
     }
 
     public static int[] byteToIntArray(byte[] array) {
-        return byteToIntArray(array, ByteOrder.LITTLE_ENDIAN);
+        return byteToIntArray(array, DEFAULT_ORDER);
     }
 
     public static int[] byteToIntArray(byte[] array, ByteOrder order) {
@@ -56,15 +81,17 @@ public class EndianConverterUtil {
         return b1 << 24 | b2 << 16 | b3 << 8 | b4 << 0;
     }
 
-    public static void swap(short[] array) {
+    public static short[] swap(short[] array) {
         for (int i = 0; i < array.length; i++) {
             array[i] = swap(array[i]);
         }
+        return array;
     }
 
-    public static void swap(int[] array) {
+    public static int[] swap(int[] array) {
         for (int i = 0; i < array.length; i++) {
             array[i] = swap(array[i]);
         }
+        return array;
     }
 }

@@ -62,4 +62,12 @@ public class HexFormatterUtil {
 
         return sb.toString();
     }
+
+    /**
+     * @param val
+     * @return Hex string representation of long value
+     */
+    public static String asHexString(long val) {
+        return String.format("0x%016x", val);
+    }
 }
