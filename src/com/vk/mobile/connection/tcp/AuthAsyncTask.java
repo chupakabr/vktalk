@@ -23,7 +23,7 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
     private int[] prev128nonce;
     private int[] prev256nonce;
 
-    private Pair<Long, Long> pqPrimeFactors;
+    private Pair<Integer, Integer> pqPrimeFactors;
 
     @Override
     protected MTProtoDataHolder doInBackground(MTProtoServerInfo... params) {
@@ -156,10 +156,18 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
         builder.appendInt(0x83c95aec)
         // pq
         .appendIntArray(pq)
-        // p
-        .appendLong(pqPrimeFactors.first)
-        // q
-        .appendLong(pqPrimeFactors.second)
+        // p len
+        .appendByte((byte)0x04)
+        // p value
+        .appendInt(pqPrimeFactors.first)
+        // p alignment
+        .appendByteArray(new byte[] {0,0,0})
+        // q len
+        .appendByte((byte)0x04)
+        // q value
+        .appendInt(pqPrimeFactors.second)
+        // q alignment
+        .appendByteArray(new byte[] {0,0,0})
         // nonce
         .appendIntArray(prev128nonce)
         // server_nonce
@@ -208,13 +216,13 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
      * @param pqBytes
      * @return Prime factors as a pair of Long values
      */
-    private Pair<Long, Long> getPQPrimeFactors(byte[] pqBytes) {
+    private Pair<Integer, Integer> getPQPrimeFactors(byte[] pqBytes) {
         byte[] pqMeaningBytes = Arrays.copyOfRange(pqBytes, 1, 1 + 8);
         Log.d(TAG, "Meaning PQ bytes are " + HexFormatterUtil.asString(pqMeaningBytes));
         long pq = EndianConverterUtil.bytesToLong(pqMeaningBytes);
 
         Log.d(TAG, "Evaluating prime factors for PQ=" + pq + " (" + HexFormatterUtil.asHexString(pq) + ")...");
-        Pair<Long, Long> factors = MathUtil.primeFactors(pq);
+        Pair<Integer, Integer> factors = MathUtil.primeFactors(pq);
         Log.d(TAG, "Prime factors for " + pq + " are " + factors.first + " x " + factors.second);
 
         return factors;

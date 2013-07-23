@@ -12,7 +12,7 @@ public class MathUtil {
      * @param origNumber
      * @return Pair of factors, in resulting pair First value should be less than Second value
      */
-    public static Pair<Long, Long> primeFactors(final long origNumber) {
+    public static Pair<Integer, Integer> primeFactors(final long origNumber) {
         long first = (long) Math.sqrt(origNumber);
         if (first % 2 == 0) ++first;
 
@@ -25,9 +25,9 @@ public class MathUtil {
         long second = origNumber/first;
 
         if (first > second) {
-            return new Pair<Long, Long>(Long.valueOf(second), Long.valueOf(first));
+            return new Pair<Integer, Integer>(Integer.valueOf((int)second), Integer.valueOf((int)first));
         } else {
-            return new Pair<Long, Long>(Long.valueOf(first), Long.valueOf(second));
+            return new Pair<Integer, Integer>(Integer.valueOf((int)first), Integer.valueOf((int)second));
         }
     }
 
