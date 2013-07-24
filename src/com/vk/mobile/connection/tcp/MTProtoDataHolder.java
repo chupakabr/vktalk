@@ -29,6 +29,14 @@ public class MTProtoDataHolder {
         this.bytesData = EndianConverterUtil.intToByteArray(data);
     }
 
+    public boolean hasError() {
+        return payloadLength == 1;
+    }
+
+    public int getErrorCode() {
+        return data[0];
+    }
+
     public int[] getData() {
         return data;
     }

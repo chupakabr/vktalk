@@ -16,7 +16,7 @@ import java.util.Arrays;
 public class MTProtoDataBuilder {
 
     private static final int CHUNK_SIZE = 200;
-    private static final float CAPACITY_FACTOR = 1.5f;
+    private static final float CAPACITY_FACTOR = 2f;
 
     protected final ByteOrder byteOrder;
     protected ByteBuffer buffer;
@@ -95,7 +95,7 @@ public class MTProtoDataBuilder {
     private void raiseIfNeeded(int extraBytes) {
         if (buffer.remaining()-extraBytes < 0) {
             ByteBuffer tmpBuf = allocate((int) (buffer.capacity() * CAPACITY_FACTOR));
-            tmpBuf.put(buffer);
+            tmpBuf.put(buffer.array());
             buffer = tmpBuf;
         }
     }

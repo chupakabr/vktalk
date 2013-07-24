@@ -21,6 +21,7 @@ public class HexFormatterUtil {
         for (int i : array) {
             sb.append(String.format("0x%08x ", i));
         }
+        sb.deleteCharAt(sb.length()-1);
 
         return sb.toString();
     }
@@ -40,6 +41,7 @@ public class HexFormatterUtil {
         for (byte b : array) {
             sb.append(String.format("0x%02x ", b));
         }
+        sb.deleteCharAt(sb.length()-1);
 
         return sb.toString();
     }
@@ -59,6 +61,7 @@ public class HexFormatterUtil {
         for (char c : array) {
             sb.append(String.format("0x%04x ", (short)c));
         }
+        sb.deleteCharAt(sb.length()-1);
 
         return sb.toString();
     }
@@ -69,5 +72,13 @@ public class HexFormatterUtil {
      */
     public static String asHexString(long val) {
         return String.format("0x%016x", val);
+    }
+
+    /**
+     * @param val
+     * @return Hex string representation of int value
+     */
+    public static String asHexString(int val) {
+        return String.format("0x%08x", val);
     }
 }

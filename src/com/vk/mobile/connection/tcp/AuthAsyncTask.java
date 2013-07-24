@@ -1,14 +1,27 @@
 package com.vk.mobile.connection.tcp;
 
 import android.os.AsyncTask;
+import android.util.Base64;
 import android.util.Log;
 import android.util.Pair;
+import com.vk.mobile.crypto.CommonCryptoException;
 import com.vk.mobile.util.EndianConverterUtil;
 import com.vk.mobile.util.HexFormatterUtil;
 import com.vk.mobile.util.MathUtil;
 import com.vk.mobile.util.TimeUtil;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.PEMReader;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import java.io.IOException;
+import java.io.StringReader;
+import java.security.*;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
 import java.util.Random;
 
@@ -20,6 +33,8 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
 
     private static final String TAG = AuthAsyncTask.class.toString();
 
+    private MTProtoServerInfo serverInfo;
+
     private int[] prev128nonce;
     private int[] prev256nonce;
 
@@ -29,12 +44,18 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
     protected MTProtoDataHolder doInBackground(MTProtoServerInfo... params) {
         Log.d(TAG, "Starting Authentication...");
 
-        MTProtoDataHolder resp = doAuth(params[0]);
+        try {
+            MTProtoDataHolder resp = doAuth(params[0]);
 
-        Log.d(TAG, "FINAL RESPONSE: [" + HexFormatterUtil.asString(resp.getData()) + "]");
-        Log.d(TAG, "Finish Authentication");
+            Log.d(TAG, "FINAL RESPONSE: [" + HexFormatterUtil.asString(resp.getData()) + "]");
+            Log.d(TAG, "Finish Authentication");
 
-        return resp;
+            return resp;
+        } catch (CommonCryptoException e) {
+            Log.e(TAG, "Finish Authentication with crypto error: " + e.getMessage(), e);
+        }
+
+        return null;
     }
 
     /**
@@ -42,7 +63,8 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
      * @param serverInfo
      * @return Last response
      */
-    private MTProtoDataHolder doAuth(MTProtoServerInfo serverInfo) {
+    private MTProtoDataHolder doAuth(MTProtoServerInfo serverInfo) throws CommonCryptoException {
+        this.serverInfo = serverInfo;
         MTProtoDataHolder resp = null;
         MTProtoSocket sock = null;
 
@@ -50,8 +72,8 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
             sock = new MTProtoSocket(serverInfo.getHost(), serverInfo.getPort());
 
             resp = sendRequest("111 req_pq#60469778", sock, generatePQRequest());
-            resp = sendRequest("222 p_q_inner_data#83c95aec", sock, generatePQInnerDataRequest(resp));
-//            resp = sendRequest("333 req_DH_params#d712e4be", sock, generateDHParamsRequest(resp));
+            //resp = sendRequest("222 p_q_inner_data#83c95aec", sock, generatePQInnerDataRequest(resp));
+            resp = sendRequest("333 req_DH_params#d712e4be", sock, generateDHParamsRequest(resp));
 //            resp = sendRequest("444 server_DH_inner_data#b5890dba", sock, generateDHInnerDataRequest(resp));
 //            resp = sendRequest("555 client_DH_inner_data#6643b654", sock, generateDHClientInnerDataRequest(resp));
 //            resp = sendRequest("777 set_client_DH_params#f5045f1f", sock, generateDHClientSetParamsRequest(resp));
@@ -86,6 +108,10 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
 
         MTProtoDataHolder resp = sock.sendRequest(request);
         Log.d(TAG, flashTag + " Response " + resp);
+
+        if (resp.hasError()) {
+            Log.e(TAG, flashTag + " Error in response: " + resp.getErrorCode());
+        }
 
         return resp;
     }
@@ -148,8 +174,6 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
         final int[] serverNonce = prevResponse.getInts(10, 4);
 
         pqPrimeFactors = getPQPrimeFactors(prevResponse.getBytes(56, 12));
-        final int[] pAsArray = EndianConverterUtil.longToInts(pqPrimeFactors.first);
-        final int[] qAsArray = EndianConverterUtil.longToInts(pqPrimeFactors.second);
 
         final MTProtoDataBuilder builder = new MTProtoDataBuilder();
         // method name
@@ -176,39 +200,6 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
         .appendIntArray(prev256nonce);
 
         return builder.build();
-//        return new MTProtoDataHolder(new int[] {
-//                // method name
-//                0x83c95aec,
-//                // pq
-//                pq[0],
-//                pq[1],
-//                pq[2],
-//                // p
-//                pAsArray[0],
-//                pAsArray[1],
-//                // q
-//                qAsArray[0],
-//                qAsArray[1],
-//                // nonce
-//                prev128nonce[0],
-//                prev128nonce[1],
-//                prev128nonce[2],
-//                prev128nonce[3],
-//                // server_nonce
-//                serverNonce[0],
-//                serverNonce[1],
-//                serverNonce[2],
-//                serverNonce[3],
-//                // new_nonce
-//                prev256nonce[0],
-//                prev256nonce[1],
-//                prev256nonce[2],
-//                prev256nonce[3],
-//                prev256nonce[4],
-//                prev256nonce[5],
-//                prev256nonce[6],
-//                prev256nonce[7]
-//        });
     }
 
     /**
@@ -223,7 +214,9 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
 
         Log.d(TAG, "Evaluating prime factors for PQ=" + pq + " (" + HexFormatterUtil.asHexString(pq) + ")...");
         Pair<Integer, Integer> factors = MathUtil.primeFactors(pq);
-        Log.d(TAG, "Prime factors for " + pq + " are " + factors.first + " x " + factors.second);
+        Log.d(TAG, "Prime factors for " + pq + " are "
+                + HexFormatterUtil.asHexString(factors.first)
+                + " <> " + HexFormatterUtil.asHexString(factors.second));
 
         return factors;
     }
@@ -233,14 +226,93 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
      * @param prevResponse
      * @return Response
      */
-    private MTProtoDataHolder generateDHParamsRequest(MTProtoDataHolder prevResponse) {
+    private MTProtoDataHolder generateDHParamsRequest(MTProtoDataHolder prevResponse) throws CommonCryptoException {
         Log.d(TAG, "Generating data in generateDHParamsRequest()");
 
         assert prevResponse != null;
-        // TODO
+
+        final int[] publicKeyFingerprints = prevResponse.getInts(19, 2);
+        final int[] serverNonce = prevResponse.getInts(10, 4);
+
+        final MTProtoDataHolder pqInnerData = generatePQInnerDataRequest(prevResponse);
+        final byte[] sha1pqInnerData = DigestUtils.sha1(pqInnerData.getBytesData());
+        final byte[] encryptedData = encryptWithRSA(sha1pqInnerData, serverInfo.getPublicKey());
+
+        Log.d(TAG, "Public key fingerprints length in bytes is " + publicKeyFingerprints.length*4);
+        Log.d(TAG, "SHA1 PQ encrypted inner data length in bytes is " + sha1pqInnerData.length);
+        Log.d(TAG, "RSA encrypted data length in bytes is " + encryptedData.length);
 
         final MTProtoDataBuilder builder = new MTProtoDataBuilder();
+        // auth_key_id
+        builder.appendInt(0x00000000)
+        .appendInt(0x00000000)
+        // message_id
+        .appendInt(0x00000000)
+        .appendInt(TimeUtil.currentUnixtime())
+        // message_length
+        .appendInt(320)
+        // req_pq call
+        .appendInt(0xD712E4BE)
+        // nonce
+        .appendIntArray(prev128nonce)
+        // server_nonce
+        .appendIntArray(serverNonce)
+        // p len
+        .appendByte((byte)0x04)
+        // p value
+        .appendInt(pqPrimeFactors.first)
+        // p alignment
+        .appendByteArray(new byte[] {0,0,0})
+        // q len
+        .appendByte((byte)0x04)
+        // q value
+        .appendInt(pqPrimeFactors.second)
+        // q alignment
+        .appendByteArray(new byte[] {0,0,0})
+        // public_key_fingerprint
+        .appendIntArray(publicKeyFingerprints)
+        // encrypted data length
+        .appendInt(0x001000FE) // 0x100 == 256
+//        .appendByte((byte)0xFE)
+//        .appendByte((byte)0x00)
+//        .appendShort((short)0x100)
+        // encrypted_data
+        .appendByteArray(encryptedData);
+
         return builder.build();
+    }
+
+    /**
+     * Encrypt specified data with RSA algo using provided RSA public key string (encoded)
+     * @param data
+     * @param publicKey
+     * @return
+     * @throws CommonCryptoException
+     */
+    private byte[] encryptWithRSA(byte[] data, String publicKey) throws CommonCryptoException {
+        try {
+            Security.addProvider(new BouncyCastleProvider());
+
+            final PEMReader reader = new PEMReader(new StringReader(publicKey));
+            PublicKey publicKeyObject = (PublicKey) reader.readObject();
+
+            Cipher cipher = Cipher.getInstance("RSA");
+            cipher.init(Cipher.ENCRYPT_MODE, publicKeyObject);
+            return cipher.doFinal(data);
+
+        } catch (IOException e) {
+            throw new CommonCryptoException(e);
+        } catch (NoSuchPaddingException e) {
+            throw new CommonCryptoException(e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new CommonCryptoException(e);
+        } catch (BadPaddingException e) {
+            throw new CommonCryptoException(e);
+        } catch (IllegalBlockSizeException e) {
+            throw new CommonCryptoException(e);
+        } catch (InvalidKeyException e) {
+            throw new CommonCryptoException(e);
+        }
     }
 
     /**

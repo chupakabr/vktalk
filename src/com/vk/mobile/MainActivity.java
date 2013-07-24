@@ -1,19 +1,12 @@
 package com.vk.mobile;
 
 import android.app.Activity;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.widget.TextView;
 import com.vk.mobile.connection.tcp.AuthAsyncTask;
 import com.vk.mobile.connection.tcp.MTProtoServerInfo;
-import com.vk.mobile.connection.tcp.MTProtoSocket;
 import com.vk.mobile.util.TimeUtil;
-
-import java.io.*;
-import java.util.Arrays;
-import java.util.Random;
 
 public class MainActivity extends Activity {
 
@@ -42,18 +35,14 @@ public class MainActivity extends Activity {
     }
 
     public void onRegisterClick(View view) {
-        Log.d(TAG, "Start registration on " + SERVER_URL + ", current unixtime is " + TimeUtil.currentUnixtime());
+        Log.d(TAG, "Start registration activity on " + SERVER_URL + ", current unixtime is " + TimeUtil.currentUnixtime());
 
         try {
-            new AuthAsyncTask().execute(new MTProtoServerInfo(SERVER_HOST, SERVER_PORT));
-//            Log.d(TAG, "FINAL RESPONSE: [" + HexFormatterUtil.asString(resp) + "]");
-
-//            TextView textView = (TextView) findViewById(R.id.textView);
-//            textView.setText("RESP: [" + HexFormatterUtil.asString(resp) + "]");
+            new AuthAsyncTask().execute(new MTProtoServerInfo(SERVER_HOST, SERVER_PORT, SERVER_PUBLIC_RSA_KEY));
         } catch (Throwable t) {
             Log.e(TAG, "Cannot register: " + t.getMessage(), t);
         }
 
-        Log.d(TAG, "Finish registration on " + SERVER_URL);
+        Log.d(TAG, "Finish starting registration activity on " + SERVER_URL);
     }
 }

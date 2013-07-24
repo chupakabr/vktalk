@@ -61,4 +61,14 @@ public class MathUtilTest extends AndroidTestCase {
         assertEquals(1805061131, pair.first.intValue());
         assertEquals(1900883261, pair.second.intValue());
     }
+
+    public void testPrimeFactors6() {
+        long val = 2222614194279003029l;
+        Pair<Integer, Integer> pair = MathUtil.primeFactors(val);
+
+        Log.i(TAG, "Prime factors for " + val + " are " + pair.first + " x " + pair.second);
+
+        assertEquals(1334381281, pair.first.intValue());
+        assertEquals(1665651509, pair.second.intValue());
+    }
 }
