@@ -180,6 +180,7 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
         builder.appendInt(0x83c95aec)
         // pq
         .appendIntArray(pq)
+
         // p len
         .appendByte((byte)0x04)
         // p value
@@ -192,6 +193,20 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
         .appendInt(pqPrimeFactors.second)
         // q alignment
         .appendByteArray(new byte[] {0,0,0})
+
+//        // p alignment
+//        .appendByteArray(new byte[] {0,0,0})
+//        // p value
+//        .appendInt(pqPrimeFactors.first)
+//        // p len
+//        .appendByte((byte)0x04)
+//        // q alignment
+//        .appendByteArray(new byte[] {0,0,0})
+//        // q value
+//        .appendInt(pqPrimeFactors.second)
+//        // q len
+//        .appendByte((byte)0x04)
+
         // nonce
         .appendIntArray(prev128nonce)
         // server_nonce
@@ -235,12 +250,31 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
         final int[] serverNonce = prevResponse.getInts(10, 4);
 
         final MTProtoDataHolder pqInnerData = generatePQInnerDataRequest(prevResponse);
-        final byte[] sha1pqInnerData = DigestUtils.sha1(pqInnerData.getBytesData());
-        final byte[] encryptedData = encryptWithRSA(sha1pqInnerData, serverInfo.getPublicKey());
+        final byte[] pqInnerDataBytes = pqInnerData.getBytesData();
+        Log.d(TAG, "PQ inner data length in bytes is " + pqInnerData.getPayloadLength()*4 +
+                ", data: " + HexFormatterUtil.asString(pqInnerData.getData()));
 
-        Log.d(TAG, "Public key fingerprints length in bytes is " + publicKeyFingerprints.length*4);
-        Log.d(TAG, "SHA1 PQ encrypted inner data length in bytes is " + sha1pqInnerData.length);
-        Log.d(TAG, "RSA encrypted data length in bytes is " + encryptedData.length);
+        final byte[] sha1pqInnerData = DigestUtils.sha1(pqInnerDataBytes);
+
+        //data_with_hash := SHA1(data) + data + (any random bytes); — so that the length equals to 255 bytes
+        final byte[] pqInnerDatWithHash = random255bytes();
+        System.arraycopy(sha1pqInnerData, 0, pqInnerDatWithHash, 0, sha1pqInnerData.length);
+        System.arraycopy(pqInnerDataBytes, 0, pqInnerDatWithHash, sha1pqInnerData.length, pqInnerDataBytes.length);
+
+        final byte[] encryptedData = encryptWithRSA(pqInnerDatWithHash, serverInfo.getPublicKey());
+
+        Log.d(TAG, "Prev 128 bit nonce length in bytes is " + prev128nonce.length*4 +
+                    ", data: " + HexFormatterUtil.asString(prev128nonce));
+        Log.d(TAG, "Server nonce length in bytes is " + serverNonce.length*4 +
+                    ", data: " + HexFormatterUtil.asString(serverNonce));
+        Log.d(TAG, "Public key fingerprints length in bytes is " + publicKeyFingerprints.length*4 +
+                    ", data: " + HexFormatterUtil.asString(publicKeyFingerprints));
+        Log.d(TAG, "SHA1 PQ encrypted inner data length in bytes is " + sha1pqInnerData.length +
+                    ", data: " + HexFormatterUtil.asString(sha1pqInnerData));
+        Log.d(TAG, "PQ inner data with hash length in bytes is " + pqInnerDatWithHash.length +
+                ", data: " + HexFormatterUtil.asString(pqInnerDatWithHash));
+        Log.d(TAG, "RSA encrypted data length in bytes is " + encryptedData.length +
+                    ", data: " + HexFormatterUtil.asString(encryptedData));
 
         final MTProtoDataBuilder builder = new MTProtoDataBuilder();
         // auth_key_id
@@ -257,6 +291,7 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
         .appendIntArray(prev128nonce)
         // server_nonce
         .appendIntArray(serverNonce)
+
         // p len
         .appendByte((byte)0x04)
         // p value
@@ -269,10 +304,26 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
         .appendInt(pqPrimeFactors.second)
         // q alignment
         .appendByteArray(new byte[] {0,0,0})
+
+//        // p alignment
+//        .appendByteArray(new byte[] {0,0,0})
+//        // p value
+//        .appendInt(pqPrimeFactors.first)
+//        // p len
+//        .appendByte((byte)0x04)
+//        // q alignment
+//        .appendByteArray(new byte[] {0,0,0})
+//        // q value
+//        .appendInt(pqPrimeFactors.second)
+//        // q len
+//        .appendByte((byte)0x04)
+
         // public_key_fingerprint
-        .appendIntArray(publicKeyFingerprints)
+        .appendInt(publicKeyFingerprints[0])
+        .appendInt(publicKeyFingerprints[1])
         // encrypted data length
-        .appendInt(0x001000FE) // 0x100 == 256
+        .appendInt(0xFE000100) // 0x100 == 256
+        //.appendInt(0x001000FE) // 0x100 == 256
 //        .appendByte((byte)0xFE)
 //        .appendByte((byte)0x00)
 //        .appendShort((short)0x100)
@@ -397,5 +448,16 @@ public class AuthAsyncTask extends AsyncTask<MTProtoServerInfo, Integer, MTProto
                 rnd.nextInt(), rnd.nextInt(), rnd.nextInt(), rnd.nextInt(),
                 rnd.nextInt(), rnd.nextInt(), rnd.nextInt(), rnd.nextInt()
         };
+    }
+
+    /**
+     * Generate random 255 bytes
+     * @return Array of random 255 bytes
+     */
+    private byte[] random255bytes() {
+        Random rnd = new Random(System.currentTimeMillis());
+        byte[] array = new byte[255];
+        rnd.nextBytes(array);
+        return array;
     }
 }

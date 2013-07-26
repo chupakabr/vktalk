@@ -15,7 +15,7 @@ import java.util.Arrays;
  */
 public class MTProtoDataBuilder {
 
-    private static final int CHUNK_SIZE = 200;
+    private static final int CHUNK_SIZE = 500; // TODO Decrease this value
     private static final float CAPACITY_FACTOR = 2f;
 
     protected final ByteOrder byteOrder;
